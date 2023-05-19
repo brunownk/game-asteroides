@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      background-color: black;
+    }
+
+    #gameCanvas {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -80%);
+      border-radius: 15px;
+      box-shadow: 0 0 10px rgb(219, 113, 224);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="800" height="400"></canvas>
+
+  <script>
+    // Carregar imagens
+    var naveImg = new Image();
+    naveImg.src = "./imagens/spaceship.gif";
+
+    var asteroideImg = new Image();
+    asteroideImg.src = "./imagens/asteroid.png";
+
+    var starsImg = new Image();
+    starsImg.src = "./imagens/stars.png";
+
+    // Configurações do jogo
+    var canvas = document.getElementById("gameCanvas");
+    var context = canvas.getContext("2d");
+    canvas.style.background = "black";
+
+    // Posição inicial da nave
+    var naveX = canvas.width / 2;
+    var naveY = canvas.height - 50;
+    var naveWidth = 50;
+    var naveHeight = 50;
+
+    // Variáveis dos asteroides
+    var asteroides = [];
+    var asteroidSpeed = 1;
+    var spawnInterval = 1000; // Intervalo em milissegundos para o surgimento de novos asteroides
+
+    // Pontuação e tempo de jogo
+    var pontuacao = 0;
+    var tempoDeJogo = 0;
+
+    // Event listeners para controlar a nave
+    document.addEventListener("keydown", keyDownHandler, false);
+    document.addEventListener("keyup", keyUpHandler, false);
+
+    var leftPressed = false;
+    var rightPressed = false;
+    var upPressed = false;
+    var downPressed = false;
+
+    function keyDownHandler(event) {
+      if (event.key == "ArrowLeft") {
+        leftPressed = true;
+      } else if (event.key == "ArrowRight") {
+        rightPressed = true;
+      } else if (event.key == "ArrowUp") {
+        upPressed = true;
+      } else if (event.key == "ArrowDown") {
+        downPressed = true;
+      }
+    }
+
+    function keyUpHandler(event) {
+      if (event.key == "ArrowLeft") {
+        leftPressed = false;
+      } else if (event.key == "ArrowRight") {
+        rightPressed = false;
+      } else if (event.key == "ArrowUp") {
+        upPressed = false;
+      } else if (event.key == "ArrowDown") {
+        downPressed = false;
+      }
+    }
+
+    // Função para detectar colisão entre dois objetos retangulares
+    function colisao(asteroide) {
+      return (
+        (naveX + naveWidth) > asteroide.x &&
+        naveX < (asteroide.x + asteroide.width) &&
+        (naveY + naveHeight) > asteroide.y &&
+        naveY < (asteroide.y + asteroide.height)
+      );
+    }
+
+    // Atualiza a pontuação e o tempo de jogo
+    function placar() {
+      pontuacao += 1;
+      tempoDeJogo += 1;
+    }
+
+    // Função para atualizar a lógica do jogo
+    function atualizar() {
+      // Atualiza a posição da nave com base nas teclas pressionadas
+      if (leftPressed) {
+        naveX -= 5;
+      }
+      if (rightPressed) {
+        naveX += 5;
+      }
+      if (upPressed) {
+        naveY -= 5;
+      }
+      if (downPressed) {
+        naveY += 5;
+      }
+
+      // Verifica se a nave atingiu os limites do canvas
+      if (naveX < 0) {
+        naveX = 0;
+      }
+      if (naveX + naveWidth > canvas.width) {
+        naveX = canvas.width - naveWidth;
+      }
+      if (naveY < 0) {
+        naveY = 0;
+      }
+      if (naveY + naveHeight > canvas.height) {
+        naveY = canvas.height - naveHeight;
+      }
+
+      // Atualiza a posição dos asteroides
+      for (var i = 0; i < asteroides.length; i++) {
+        var asteroide = asteroides[i];
+        asteroide.y += asteroidSpeed;
+
+        // Verifica se ocorreu colisão entre a nave e o asteroide
+        if (colisao(asteroide)) {
+          pararJogo()
+          context.font = "40px Helvetica";
+          context.fillStyle = "white";
+          context.fillText("GAME OVER", canvas.width / 2 - 150, canvas.height / 2);
+        }
+
+        // Remove os asteroides que passaram do limite inferior do canvas
+        if (asteroide.y > canvas.height) {
+          asteroides.splice(i, 1);
+          i--;
+        }
+      }
+    }
+
+    // Função para desenhar os elementos na tela
+    function desenhar() {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+
+      //Desenhar estrelas
+      context.drawImage(starsImg, 0, 0, canvas.width, canvas.height);
+
+      // Desenha a nave
+      context.drawImage(naveImg, naveX, naveY, naveWidth, naveHeight);
+
+      // Desenha os asteroides
+      for (var i = 0; i < asteroides.length; i++) {
+        var asteroide = asteroides[i];
+        context.drawImage(asteroideImg, asteroide.x, asteroide.y, asteroide.width, asteroide.height);
+      }
+
+      // Desenha a pontuação
+      context.font = "20px Helvetica";
+      context.fillStyle = "white";
+      context.fillText("Pontuação: " + pontuacao, 10, 30);
+    }
+
+    // Função de loop do jogo
+    function loopDoJogo() {
+      desenhar();
+      atualizar();
+    }
+
+    // Adiciona novos asteroides em intervalos de tempo regulares
+    function respawnAsteroide() {
+      var novoAsteroide = {
+          x: Math.random() * (canvas.width - 50),
+          y: -50,
+          width: 50,
+          height: 50
+        };
+      
+      asteroides.push(novoAsteroide);
+    }
+
+    function aumentarDificuldade() {
+      // Aumenta a velocidade de queda dos asteroides
+      asteroidSpeed += 0.5;
+
+      // Reduz o intervalo de spawn de asteroides
+      if (spawnInterval > 100) {
+        spawnInterval -= 100;
+      }
+    }
+
+
+    function pararJogo() {
+      clearInterval(placarID);
+      clearInterval(aumentarDificuldadeID);
+      clearInterval(gameID);
+      clearInterval(placarID);
+    }
+    
+    // Inicia o loop do jogo
+    var aumentarDificuldadeID = setInterval(aumentarDificuldade, 5000);
+    var placarID = setInterval(placar, 1000);
+    var gameID = setInterval(loopDoJogo, 10);
+    var asteroidesID = setInterval(respawnAsteroide, 1000);
+
+  </script>
+</body>
+</html>
