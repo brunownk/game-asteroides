@@ -14,15 +14,38 @@
       border-radius: 15px;
       box-shadow: 0 0 10px rgb(219, 113, 224);
     }
+    #restartButton {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-30%, -50%);
+      background-color: rgb(219, 113, 224);
+      color: white;
+      font-size: 16px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    #restartButton:hover {
+      background-color: rgb(189, 83, 194);
+    }
   </style>
 </head>
 <body>
   <canvas id="gameCanvas" width="800" height="400"></canvas>
 
   <script>
-    // Carregar imagens
-    var naveImg = new Image();
-    naveImg.src = "./imagens/spaceship.gif";
+
+    //Definindo botão de reiniciar como global
+    var restartButton = document.createElement("button");
+
+    var naveImgLeft = new Image();
+    naveImgLeft.src = "./imagens/left.gif";
+
+    var naveImgRight = new Image();
+    naveImgRight.src = "./imagens/right.gif"; 
 
     var asteroideImg = new Image();
     asteroideImg.src = "./imagens/asteroid.png";
@@ -30,6 +53,8 @@
     var starsImg = new Image();
     starsImg.src = "./imagens/stars.png";
 
+
+    var naveImgCurrent = naveImgRight; // imagem padrão de inicio da nave
     // Configurações do jogo
     var canvas = document.getElementById("gameCanvas");
     var context = canvas.getContext("2d");
@@ -49,6 +74,11 @@
     // Pontuação e tempo de jogo
     var pontuacao = 0;
     var tempoDeJogo = 0;
+
+    // Variáveis para controle do tempo sem mover a nave
+    var tempoSemMover = 0;
+    var tempoSemMoverLimite = 10; // Tempo em segundos
+    var pontosPerdidosSemMover = 10;
 
     // Event listeners para controlar a nave
     document.addEventListener("keydown", keyDownHandler, false);
@@ -85,11 +115,12 @@
 
     // Função para detectar colisão entre dois objetos retangulares
     function colisao(asteroide) {
+      // Ajustando hitbox
       return (
-        (naveX + naveWidth) > asteroide.x &&
-        naveX < (asteroide.x + asteroide.width) &&
-        (naveY + naveHeight) > asteroide.y &&
-        naveY < (asteroide.y + asteroide.height)
+        (naveX + naveWidth - 10) > (asteroide.x + 10) &&
+        naveX + 10 < (asteroide.x + asteroide.width - 10) &&
+        (naveY + naveHeight - 10) > (asteroide.y + 10) &&
+        naveY + 10 < (asteroide.y + asteroide.height - 10)
       );
     }
 
@@ -97,23 +128,44 @@
     function placar() {
       pontuacao += 1;
       tempoDeJogo += 1;
+
+      // Verifica se o jogador ficou sem mover por 10 segundos
+      if (!leftPressed && !rightPressed && !upPressed && !downPressed) {
+        tempoSemMover += 1;
+
+        if (tempoSemMover >= tempoSemMoverLimite) {
+          // subtrai os pontos 
+          pontuacao -= pontosPerdidosSemMover;
+          tempoSemMover = 0;
+        }
+      } else {
+        //reset do timer
+        tempoSemMover = 0;
+      }
     }
 
     // Função para atualizar a lógica do jogo
     function atualizar() {
-      // Atualiza a posição da nave com base nas teclas pressionadas
+     
+      // Update the ship position based on the direction flags
+
       if (leftPressed) {
         naveX -= 5;
+        naveImgCurrent = naveImgLeft; // nave virada pra esquerda
       }
       if (rightPressed) {
         naveX += 5;
+        naveImgCurrent = naveImgRight; // nave virada pra direita
       }
       if (upPressed) {
         naveY -= 5;
+        naveImgCurrent = naveImgLeft; 
       }
       if (downPressed) {
         naveY += 5;
+        naveImgCurrent = naveImgRight; 
       }
+
 
       // Verifica se a nave atingiu os limites do canvas
       if (naveX < 0) {
@@ -136,11 +188,26 @@
 
         // Verifica se ocorreu colisão entre a nave e o asteroide
         if (colisao(asteroide)) {
-          pararJogo()
+          pararJogo();
+          let width_canvas = canvas.width / 2 - 140;
+          let height_canvas = canvas.height / 2;
+
+          // Mostra a tela de game over
           context.font = "40px Helvetica";
           context.fillStyle = "white";
-          context.fillText("GAME OVER", canvas.width / 2 - 150, canvas.height / 2);
+          context.fillText("GAME OVER", width_canvas, height_canvas);
+
+          // Botão de restart
+          
+          restartButton.innerHTML = "Restart Game";
+          restartButton.id = "restartButton";
+          restartButton.style.position = "absolute";
+          restartButton.style.top = height_canvas + 210 + "px";
+          restartButton.style.left = width_canvas+656 + "px";
+          restartButton.addEventListener("click", reiniciarJogo);
+          document.body.appendChild(restartButton);
         }
+
 
         // Remove os asteroides que passaram do limite inferior do canvas
         if (asteroide.y > canvas.height) {
@@ -153,12 +220,11 @@
     // Função para desenhar os elementos na tela
     function desenhar() {
       context.clearRect(0, 0, canvas.width, canvas.height);
-
-      //Desenhar estrelas
+      // desenha estrelas
       context.drawImage(starsImg, 0, 0, canvas.width, canvas.height);
 
-      // Desenha a nave
-      context.drawImage(naveImg, naveX, naveY, naveWidth, naveHeight);
+      // desenha a nave
+      context.drawImage(naveImgCurrent, naveX, naveY, naveWidth, naveHeight);
 
       // Desenha os asteroides
       for (var i = 0; i < asteroides.length; i++) {
@@ -181,12 +247,12 @@
     // Adiciona novos asteroides em intervalos de tempo regulares
     function respawnAsteroide() {
       var novoAsteroide = {
-          x: Math.random() * (canvas.width - 50),
-          y: -50,
-          width: 50,
-          height: 50
-        };
-      
+        x: Math.random() * (canvas.width - 50),
+        y: -50,
+        width: 50,
+        height: 50
+      };
+
       asteroides.push(novoAsteroide);
     }
 
@@ -200,19 +266,45 @@
       }
     }
 
-
     function pararJogo() {
       clearInterval(placarID);
       clearInterval(aumentarDificuldadeID);
       clearInterval(gameID);
-      clearInterval(placarID);
+      clearInterval(asteroidesID);
     }
-    
+
     // Inicia o loop do jogo
     var aumentarDificuldadeID = setInterval(aumentarDificuldade, 5000);
     var placarID = setInterval(placar, 1000);
     var gameID = setInterval(loopDoJogo, 10);
-    var asteroidesID = setInterval(respawnAsteroide, 1000);
+    var asteroidesID = setInterval(respawnAsteroide, spawnInterval);
+
+    // Função para reiniciar o jogo
+    function reiniciarJogo() {
+      // Reseta variáveis do jogo
+      asteroides = [];
+      asteroidSpeed = 1;
+      spawnInterval = 1000;
+      pontuacao = 0;
+      tempoDeJogo = 0;
+
+      // Reseta pos da nave
+      naveX = canvas.width / 2;
+      naveY = canvas.height - 50;
+
+      // retira o botão de restart
+      restartButton.parentNode.removeChild(restartButton);
+      
+
+      // reinicia o loop do jogo
+      aumentarDificuldadeID = setInterval(aumentarDificuldade, 5000);
+      placarID = setInterval(placar, 1000);
+      gameID = setInterval(loopDoJogo, 10);
+      asteroidesID = setInterval(respawnAsteroide, spawnInterval);
+
+
+    }
+
 
   </script>
 </body>
